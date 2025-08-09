@@ -31,7 +31,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     Widget body;
     // log
-    print('XXX selected index: $_selectedIndex');
+    // print('XXX selected index test: $_selectedIndex');
     switch (_selectedIndex) {
       case 0:
         body = ChatListPage(mainScaffoldContext: context, onTabChange: _onTabTapped);

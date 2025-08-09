@@ -23,12 +23,12 @@ class _ChatListPageState extends State<ChatListPage> {
     super.initState();
     _fetchUserRole();
     // log
-    print('XXX chat list initialized');
+    // print('XXX chat list initialized');
   }
 
   Future<void> _fetchUserRole() async {
     // log
-    print('XXX _fetchUserRole called');
+    // print('XXX _fetchUserRole called');
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final doc =
@@ -38,7 +38,7 @@ class _ChatListPageState extends State<ChatListPage> {
             .get();
     setState(() {
       // log
-      print('XXX _fetchUserRole setState called');
+      // print('XXX _fetchUserRole setState called');
       _role = doc.data()?['role'];
       _userId = doc.data()?['user_id'];
     });
@@ -123,7 +123,7 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   Widget build(BuildContext context) {
     // log
-    print('XXX scaffolding chats page');
+    // print('XXX scaffolding chats page');
 
     return Scaffold(
       appBar: AppBar(

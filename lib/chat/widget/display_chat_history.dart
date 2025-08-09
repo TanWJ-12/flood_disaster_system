@@ -51,7 +51,7 @@ class _DisplayChatHistoryState extends State<DisplayChatHistory> {
               .snapshots(),
       builder: (ctx, snapshot) {
         // log
-        print('XXX chat history loaded');
+        // print('XXX chat history loaded');
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
