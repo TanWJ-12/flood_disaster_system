@@ -28,6 +28,7 @@ class _AddReportPageState extends ConsumerState<AddReportPage> {
   final String _status = 'Submitted'; // Default status
   String _createdTime = '';
   final user = FirebaseAuth.instance.currentUser;
+  var _isUploading = false;//1
 
   Future<String?> _getUserName() async {
     
@@ -42,6 +43,11 @@ class _AddReportPageState extends ConsumerState<AddReportPage> {
   }
 
   void _saveReport() async {
+
+    setState((){
+      _isUploading = true;
+    });//2
+    
     final enteredText = _titleController.text;
     final enteredDescription = _descriptionController.text;
 
@@ -62,6 +68,8 @@ class _AddReportPageState extends ConsumerState<AddReportPage> {
 
     final createdTime = DateTime.now(); // Automatically capture created time
     _createdTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(createdTime);
+
+    
 
     ref.read(userReportProvider.notifier).addReport(
           enteredText,
@@ -99,6 +107,8 @@ class _AddReportPageState extends ConsumerState<AddReportPage> {
     });
 
     Navigator.of(context).pop();
+
+    
   }
 
   @override
@@ -162,11 +172,14 @@ class _AddReportPageState extends ConsumerState<AddReportPage> {
               },
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _saveReport,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Report'),
-            ),
+            if (_isUploading)
+              const CircularProgressIndicator(),
+            if (!_isUploading)
+              ElevatedButton.icon(
+                onPressed: _saveReport,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Report'),
+              ),
           ],
         ),
       ),

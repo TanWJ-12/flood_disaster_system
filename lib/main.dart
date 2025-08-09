@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
             return const SplashScreen();
           }
           if(snapshot.hasData){
-            return const HomePage();
+            return const MainScaffold();
           }
           return const AuthPage();
         }),

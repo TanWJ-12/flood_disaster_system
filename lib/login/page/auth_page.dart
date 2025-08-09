@@ -26,6 +26,7 @@ class _AuthPageState extends State<AuthPage> {
   var _enteredEmail = '';
   var _enteredPassword = '';
   var _enteredUsername = '';
+  var _enteredUserID = ''; // Add this variable
   File? _selectedImage;
   var _isAuthenticating = false;
 
@@ -47,6 +48,23 @@ class _AuthPageState extends State<AuthPage> {
           password: _enteredPassword,
         );
       } else {
+        // Check if userID is unique
+        final userIdQuery = await _firebasedb
+            .collection('users')
+            .where('user_id', isEqualTo: _enteredUserID)
+            .get();
+
+        if (userIdQuery.docs.isNotEmpty) {
+          setState(() {
+            _isAuthenticating = false;
+          });
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('UserID already exists. Please choose another one.')),
+          );
+          return;
+        }
+
         final userCredentials = await _firebase.createUserWithEmailAndPassword(
           email: _enteredEmail,
           password: _enteredPassword,
@@ -60,46 +78,20 @@ class _AuthPageState extends State<AuthPage> {
         await storageRef.putFile(_selectedImage!);
         final imageUrl = await storageRef.getDownloadURL();
 
-        // // Create a new user with a first and last name
-        // final user = <String, dynamic>{
-        //   "first": "Ada",
-        //   "last": "Lovelace",
-        //   "born": 1815,
-        // };
-
-        // // Add a new document with a generated ID
-        // await _firebasedb
-        //     .collection("users")
-        //     .add(user)
-        //     .then(
-        //       (DocumentReference doc) =>
-        //           print('DocumentSnapshot added with ID: ${doc.id}'),
-        //     );
-
         try {
           await _firebasedb
               .collection('users')
               .doc(userCredentials.user!.uid)
               .set({
+            'user_id': _enteredUserID,
             'username': _enteredUsername,
             'email': _enteredEmail,
             'image_url': imageUrl,
-            'role' : _role,
+            'role': _role,
           });
         } catch (error) {
           print(error);
         }
-
-
-        
-        // await _firebasedb
-        //     .collection('users')
-        //     .doc(userCredentials.user!.uid)
-        //     .set({
-        //       'username': _enteredUsername,
-        //       'email': _enteredEmail,
-        //       'image_url': imageUrl,
-        //     });
       }
     } on FirebaseAuthException catch (error) {
       // print error into console
@@ -178,6 +170,22 @@ class _AuthPageState extends State<AuthPage> {
                               },
                               onSaved: (value) {
                                 _enteredUsername = value!;
+                              },
+                            ),
+                          if (!_isLogin)
+                            TextFormField(
+                              decoration: const InputDecoration(
+                                labelText: 'User ID',
+                              ),
+                              enableSuggestions: false,
+                              validator: (value) {
+                                if (value == null || value.isEmpty || value.trim().length < 4) {
+                                  return 'Please enter at least 4 characters for userID.';
+                                }
+                                return null;
+                              },
+                              onSaved: (value) {
+                                _enteredUserID = value!.trim();
                               },
                             ),
                           TextFormField(
