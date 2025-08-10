@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp/chat/page/create_group_page.dart';
 import 'package:fyp/chat/page/user_search_page.dart';
-import 'package:fyp/chat/page/chat_page.dart';
 import 'package:fyp/chat/widget/display_chat_history.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -44,45 +44,45 @@ class _ChatListPageState extends State<ChatListPage> {
     });
   }
 
-  void _showCreateGroupDialog() {
-    String groupName = '';
-    showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Create Group Chat'),
-            content: TextField(
-              decoration: const InputDecoration(labelText: 'Group Name'),
-              onChanged: (value) => groupName = value,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (groupName.trim().isEmpty) return;
-                  final user = FirebaseAuth.instance.currentUser;
-                  final groupDoc = await FirebaseFirestore.instance
-                      .collection('chats')
-                      .add({
-                        'type': 'group',
-                        'name': groupName,
-                        'image_url': '', // You can add image upload later
-                        'members': [user!.uid],
-                        'createdBy': user.uid,
-                        'createdAt': Timestamp.now(),
-                      });
-                  Navigator.of(ctx).pop();
-                  // Optionally navigate to the new group chat
-                },
-                child: const Text('Create'),
-              ),
-            ],
-          ),
-    );
-  }
+  // void _showCreateGroupDialog() {
+  //   String groupName = '';
+  //   showDialog(
+  //     context: context,
+  //     builder:
+  //         (ctx) => AlertDialog(
+  //           title: const Text('Create Group Chat'),
+  //           content: TextField(
+  //             decoration: const InputDecoration(labelText: 'Group Name'),
+  //             onChanged: (value) => groupName = value,
+  //           ),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () => Navigator.of(ctx).pop(),
+  //               child: const Text('Cancel'),
+  //             ),
+  //             ElevatedButton(
+  //               onPressed: () async {
+  //                 if (groupName.trim().isEmpty) return;
+  //                 final user = FirebaseAuth.instance.currentUser;
+  //                 final groupDoc = await FirebaseFirestore.instance
+  //                     .collection('chats')
+  //                     .add({
+  //                       'type': 'group',
+  //                       'name': groupName,
+  //                       'image_url': '', // You can add image upload later
+  //                       'members': [user!.uid],
+  //                       'createdBy': user.uid,
+  //                       'createdAt': Timestamp.now(),
+  //                     });
+  //                 Navigator.of(ctx).pop();
+  //                 // Optionally navigate to the new group chat
+  //               },
+  //               child: const Text('Create'),
+  //             ),
+  //           ],
+  //         ),
+  //   );
+  // }
 
   void _showBroadcastDialog() {
     String message = '';
@@ -120,6 +120,75 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
+  void _showJoinGroupDialog(BuildContext context) {
+    final controller = TextEditingController();
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) => AlertDialog(
+            title: const Text('Join Group'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(labelText: 'Group Chat ID'),
+                ),
+                if (errorMsg != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(errorMsg!, style: const TextStyle(color: Colors.red)),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final groupId = controller.text.trim();
+                  if (groupId.isEmpty) {
+                    setState(() => errorMsg = 'Please enter a group chat ID.');
+                    return;
+                  }
+                  final groupDoc = await FirebaseFirestore.instance.collection('chats').doc(groupId).get();
+                  if (!groupDoc.exists || groupDoc['type'] != 'group') {
+                    setState(() => errorMsg = 'Group not found.');
+                    return;
+                  }
+                  final user = FirebaseAuth.instance.currentUser;
+                  final userDoc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+                  final userId = userDoc['user_id'];
+                  if ((groupDoc['members'] as List).contains(userId)) {
+                    setState(() => errorMsg = 'You are already a member of this group.');
+                    return;
+                  }
+                  if ((groupDoc['requests'] as List).contains(userId)) {
+                    setState(() => errorMsg = 'You have already requested to join.');
+                    return;
+                  }
+                  await groupDoc.reference.update({
+                    'requests': FieldValue.arrayUnion([userId])
+                  });
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Request sent to group admin.')),
+                  );
+                },
+                child: const Text('Join'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // log
@@ -133,7 +202,11 @@ class _ChatListPageState extends State<ChatListPage> {
             IconButton(
               icon: const Icon(Icons.group_add),
               tooltip: 'Create Group Chat',
-              onPressed: _showCreateGroupDialog,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (ctx) => const CreateGroupPage()),
+                );
+              },
             ),
           if (_role == 'admin')
             IconButton(
@@ -141,6 +214,11 @@ class _ChatListPageState extends State<ChatListPage> {
               tooltip: 'Send Broadcast',
               onPressed: _showBroadcastDialog,
             ),
+          IconButton(
+            icon: const Icon(Icons.group),
+            tooltip: 'Join Group',
+            onPressed: () => _showJoinGroupDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Search User by ID',

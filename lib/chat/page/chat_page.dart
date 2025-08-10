@@ -70,7 +70,7 @@ class _ChatPageState extends State<ChatPage> {
     // Update chat meta for chat list
     await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).set({
       'lastMessage': text,
-      'lastMessageSender': _currentUser!.uid,
+      'lastMessageSender': _currentUser.uid,
       'lastMessageTime': Timestamp.now(),
     }, SetOptions(merge: true));
 
