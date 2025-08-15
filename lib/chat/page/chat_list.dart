@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp/chat/page/broadcast_create_page.dart';
 import 'package:fyp/chat/page/create_group_page.dart';
 import 'package:fyp/chat/page/user_search_page.dart';
+import 'package:fyp/chat/widget/display_broadcast_chat.dart';
 import 'package:fyp/chat/widget/display_chat_history.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -84,41 +86,41 @@ class _ChatListPageState extends State<ChatListPage> {
   //   );
   // }
 
-  void _showBroadcastDialog() {
-    String message = '';
-    showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Send Broadcast Message'),
-            content: TextField(
-              decoration: const InputDecoration(labelText: 'Message'),
-              onChanged: (value) => message = value,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (message.trim().isEmpty) return;
-                  final user = FirebaseAuth.instance.currentUser;
-                  await FirebaseFirestore.instance
-                      .collection('broadcasts')
-                      .add({
-                        'message': message,
-                        'sender': user!.uid,
-                        'createdAt': Timestamp.now(),
-                      });
-                  Navigator.of(ctx).pop();
-                },
-                child: const Text('Send'),
-              ),
-            ],
-          ),
-    );
-  }
+  // void _showBroadcastDialog() {
+  //   String message = '';
+  //   showDialog(
+  //     context: context,
+  //     builder:
+  //         (ctx) => AlertDialog(
+  //           title: const Text('Send Broadcast Message'),
+  //           content: TextField(
+  //             decoration: const InputDecoration(labelText: 'Message'),
+  //             onChanged: (value) => message = value,
+  //           ),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () => Navigator.of(ctx).pop(),
+  //               child: const Text('Cancel'),
+  //             ),
+  //             ElevatedButton(
+  //               onPressed: () async {
+  //                 if (message.trim().isEmpty) return;
+  //                 final user = FirebaseAuth.instance.currentUser;
+  //                 await FirebaseFirestore.instance
+  //                     .collection('broadcasts')
+  //                     .add({
+  //                       'message': message,
+  //                       'sender': user!.uid,
+  //                       'createdAt': Timestamp.now(),
+  //                     });
+  //                 Navigator.of(ctx).pop();
+  //               },
+  //               child: const Text('Send'),
+  //             ),
+  //           ],
+  //         ),
+  //   );
+  // }
 
   void _showJoinGroupDialog(BuildContext context) {
     final controller = TextEditingController();
@@ -200,6 +202,16 @@ class _ChatListPageState extends State<ChatListPage> {
         actions: [
           if (_role == 'admin')
             IconButton(
+              icon: const Icon(Icons.campaign), // Use campaign icon for broadcast
+              tooltip: 'Send Broadcast',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (ctx) => const BroadcastCreatePage()),
+                );
+              },
+            ),
+          if (_role == 'admin')
+            IconButton(
               icon: const Icon(Icons.group_add),
               tooltip: 'Create Group Chat',
               onPressed: () {
@@ -207,12 +219,6 @@ class _ChatListPageState extends State<ChatListPage> {
                   MaterialPageRoute(builder: (ctx) => const CreateGroupPage()),
                 );
               },
-            ),
-          if (_role == 'admin')
-            IconButton(
-              icon: const Icon(Icons.campaign),
-              tooltip: 'Send Broadcast',
-              onPressed: _showBroadcastDialog,
             ),
           IconButton(
             icon: const Icon(Icons.group),
@@ -236,8 +242,13 @@ class _ChatListPageState extends State<ChatListPage> {
           :
       Padding(
         padding: const EdgeInsets.all(8.0),
-        child: DisplayChatHistory(
-          // report: userReport,
+        child: Column(
+          children: [
+            DisplayBroadcastChat(),
+            DisplayChatHistory(
+              // report: userReport,
+            ),
+          ],
         ),
       ),
     );

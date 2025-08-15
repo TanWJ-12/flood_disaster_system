@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp/chat/widget/message_bubble.dart';
+import 'package:fyp/chat/page/manage_group_page.dart'; // Import your manage group page
 
 class ChatPage extends StatefulWidget {
   final String? chatId;
@@ -31,12 +32,16 @@ class _ChatPageState extends State<ChatPage> {
   final _controller = TextEditingController();
   final _currentUser = FirebaseAuth.instance.currentUser;
   Map<String, dynamic>? _targetUserData; // For private chat
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.chatType == 'private' && widget.targetUserId != null) {
       _fetchTargetUserData();
+    }
+    if (widget.chatType == 'group' && widget.chatId != null) {
+      _checkAdmin();
     }
   }
 
@@ -48,6 +53,19 @@ class _ChatPageState extends State<ChatPage> {
     if (query.docs.isNotEmpty) {
       setState(() {
         _targetUserData = query.docs.first.data();
+      });
+    }
+  }
+
+  Future<void> _checkAdmin() async {
+    final chatDoc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).get();
+    final data = chatDoc.data();
+    if (data != null && _currentUser != null) {
+      final adminUserId = data['admin'];
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).get();
+      final myUserId = userDoc['user_id'];
+      setState(() {
+        _isAdmin = myUserId == adminUserId;
       });
     }
   }
@@ -117,6 +135,23 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: appBarTitle,
+        actions: [
+          if (widget.chatType == 'group' && _isAdmin)
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Manage Group',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => ManageGroupPage(
+                      groupId: widget.chatId!,
+                      adminUserId: _currentUser!.uid,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
