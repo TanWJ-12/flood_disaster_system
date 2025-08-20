@@ -131,16 +131,6 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(
-              controller: _groupIdController,
-              decoration: const InputDecoration(labelText: 'Group Chat ID (unique)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Group Name'),
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
                 _groupImage != null
@@ -161,6 +151,16 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
               ],
             ),
             const SizedBox(height: 16),
+            TextField(
+              controller: _groupIdController,
+              decoration: const InputDecoration(labelText: 'Group Chat ID (unique)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Group Name'),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(

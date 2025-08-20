@@ -9,24 +9,28 @@ class BroadcastPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Announcements')),
-      body: FutureBuilder<QuerySnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('broadcasts')
-            .orderBy('timestamp', descending: true)
-            .get(),
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('chat').doc('broadcast').get(),
         builder: (ctx, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final broadcasts = snapshot.data!.docs;
+          final doc = snapshot.data;
+          if (doc == null || !doc.exists) {
+            return const Center(child: Text('No announcements yet.'));
+          }
+          final data = doc.data() as Map<String, dynamic>;
+          final messages = (data['messages'] as List<dynamic>? ?? []).reversed;
+          if (messages.isEmpty) {
+            return const Center(child: Text('No announcements yet.'));
+          }
           return ListView(
-            children: broadcasts.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+            children: messages.map((msg) {
               return BroadcastBubble(
-                message: data['message'],
-                urgency: data['urgency'],
-                timestamp: data['timestamp'].toDate(),
-                imageUrl: data['image_url'],
-                location: data['location'] != null
-                    ? {'lat': data['location']['lat'], 'lng': data['location']['lng']}
+                message: msg['message'] ?? '',
+                urgency: msg['urgency'] ?? 'Update',
+                timestamp: (msg['timestamp'] as Timestamp).toDate(),
+                imageUrl: msg['image_url'],
+                location: msg['location'] != null
+                    ? {'lat': msg['location']['lat'], 'lng': msg['location']['lng']}
                     : null,
               );
             }).toList(),

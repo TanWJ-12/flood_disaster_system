@@ -95,6 +95,10 @@ class _ManageGroupPageState extends State<ManageGroupPage> {
   }
 
   Future<void> _removeMember(String userId) async {
+    if (userId == widget.adminUserId) {
+      setState(() => _error = 'Admin cannot be removed from the group.');
+      return;
+    }
     await FirebaseFirestore.instance.collection('chats').doc(widget.groupId).update({
       'members': FieldValue.arrayRemove([userId])
     });
@@ -227,15 +231,15 @@ class _ManageGroupPageState extends State<ManageGroupPage> {
                       final userId = user['user_id'];
                       final username = user['username'] ?? userId;
                       final imageUrl = user['image_url'];
+                      final isAdmin = userId == widget.adminUserId;
                       return Chip(
                         avatar: imageUrl != null && imageUrl.isNotEmpty
                             ? CircleAvatar(backgroundImage: NetworkImage(imageUrl))
                             : const CircleAvatar(child: Icon(Icons.person)),
                         label: Text(username),
-                        onDeleted: userId == widget.adminUserId
-                            ? null
-                            : () => _removeMember(userId),
-                        deleteIcon: userId == widget.adminUserId ? null : const Icon(Icons.close),
+                        // Only show delete icon for non-admin members
+                        onDeleted: isAdmin ? null : () => _removeMember(userId),
+                        deleteIcon: isAdmin ? null : const Icon(Icons.close),
                       );
                     }).toList(),
                   ),

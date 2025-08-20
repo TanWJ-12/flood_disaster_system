@@ -242,14 +242,15 @@ class _ChatListPageState extends State<ChatListPage> {
           :
       Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            DisplayBroadcastChat(),
+        child: 
+        // Column(
+        //   children: [
+            // DisplayBroadcastChat(),
             DisplayChatHistory(
               // report: userReport,
             ),
-          ],
-        ),
+        //   ],
+        // ),
       ),
     );
   }

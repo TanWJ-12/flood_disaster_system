@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp/chat/page/broadcast_page.dart';
 import 'package:fyp/chat/page/chat_page.dart';
 
 class DisplayChatHistory extends StatefulWidget {
@@ -39,89 +40,123 @@ class _DisplayChatHistoryState extends State<DisplayChatHistory> {
     }
   }
 
+  String truncateText(String text, int maxLength) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
+  }
+
   @override
   Widget build(BuildContext context) {
     _fetchMyUserId();
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('chats')
-              .where('members', arrayContains: _userId)
-              .orderBy('lastMessageTime', descending: true)
-              .snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('chats')
+          .where('members', arrayContains: _userId)
+          .orderBy('lastMessageTime', descending: true)
+          .snapshots(),
       builder: (ctx, snapshot) {
-        // log
-        // print('XXX chat history loaded');
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No chats yet.'));
-        }
-        final chatDocs = snapshot.data!.docs;
-        return ListView.builder(
-          itemCount: chatDocs.length,
-          itemBuilder: (ctx, idx) {
-            final chat = chatDocs[idx].data() as Map<String, dynamic>;
-            final isGroup = chat['type'] == 'group';
-            final members = List<String>.from(chat['members'] ?? []);
-            String? targetUserId;
-            if (!isGroup) {
-              targetUserId = members.firstWhere((id) => id != _userId);
-            }
-            return FutureBuilder<DocumentSnapshot>(
-              future:
-                  isGroup
-                      ? null
-                      : FirebaseFirestore.instance
-                          .collection('users')
-                          .where('user_id', isEqualTo: targetUserId)
-                          .limit(1)
-                          .get()
-                          .then((snap) => snap.docs.first),
-              builder: (ctx, userSnap) {
-                String title = '';
-                String? imageUrl;
-                if (isGroup) {
-                  title = chat['name'] ?? 'Group Chat';
-                  imageUrl = chat['image_url'];
-                } else if (userSnap.hasData && userSnap.data != null) {
-                  final userData =
-                      userSnap.data!.data() as Map<String, dynamic>;
-                  title = userData['username'] ?? '';
-                  imageUrl = userData['image_url'];
-                }
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage:
-                        imageUrl != null && imageUrl.isNotEmpty
-                            ? NetworkImage(imageUrl)
-                            : null,
-                    child:
-                        imageUrl == null || imageUrl.isEmpty
-                            ? const Icon(Icons.person)
-                            : null,
-                  ),
-                  title: Text(title),
-                  subtitle: Text(chat['lastMessage'] ?? ''),
-                  trailing: Text(_formatTime(chat['lastMessageTime'])),
+        final chatDocs = snapshot.hasData ? snapshot.data!.docs : [];
+
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('chat').doc('broadcast').snapshots(),
+          builder: (ctx, broadcastSnap) {
+            List<Widget> chatTiles = [];
+            // Add broadcast chat if exists
+            if (broadcastSnap.hasData && broadcastSnap.data != null && broadcastSnap.data!.exists) {
+              final broadcast = broadcastSnap.data!.data() as Map<String, dynamic>;
+              chatTiles.add(
+                ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.campaign)),
+                  title: const Text('Announcements'),
+                  subtitle: Text(truncateText(broadcast['lastMessage'] ?? '', 16)),
+                  trailing: Text(_formatTime(broadcast['lastMessageTime'])),
                   onTap: () {
+                    // Navigate to broadcast page or details
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder:
-                            (ctx) => ChatPage(
-                              chatId: chatDocs[idx].id,
-                              chatType: isGroup ? 'group' : 'private',
-                              targetUserId: isGroup ? null : targetUserId,
-                              groupName: isGroup ? chat['name'] : null,
-                              groupImage: isGroup ? chat['image_url'] : null,
-                            ),
+                        builder: (ctx) => BroadcastPage(
+                        ),
                       ),
                     );
                   },
-                );
-              },
+                ),
+              );
+            }
+
+            // Add other chats
+            if (chatDocs.isEmpty && chatTiles.isEmpty) {
+              return const Center(child: Text('No chats yet.'));
+            }
+            for (var idx = 0; idx < chatDocs.length; idx++) {
+              final chat = chatDocs[idx].data() as Map<String, dynamic>;
+              final isGroup = chat['type'] == 'group';
+              final members = List<String>.from(chat['members'] ?? []);
+              String? targetUserId;
+              if (!isGroup) {
+                targetUserId = members.firstWhere((id) => id != _userId);
+              }
+              chatTiles.add(
+                FutureBuilder<DocumentSnapshot>(
+                  future:
+                      isGroup
+                          ? null
+                          : FirebaseFirestore.instance
+                              .collection('users')
+                              .where('user_id', isEqualTo: targetUserId)
+                              .limit(1)
+                              .get()
+                              .then((snap) => snap.docs.first),
+                  builder: (ctx, userSnap) {
+                    String title = '';
+                    String? imageUrl;
+                    if (isGroup) {
+                      title = chat['name'] ?? 'Group Chat';
+                      imageUrl = chat['image_url'];
+                    } else if (userSnap.hasData && userSnap.data != null) {
+                      final userData =
+                          userSnap.data!.data() as Map<String, dynamic>;
+                      title = userData['username'] ?? '';
+                      imageUrl = userData['image_url'];
+                    }
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage:
+                            imageUrl != null && imageUrl.isNotEmpty
+                                ? NetworkImage(imageUrl)
+                                : null,
+                        child:
+                            imageUrl == null || imageUrl.isEmpty
+                                ? const Icon(Icons.person)
+                                : null,
+                      ),
+                      title: Text(truncateText(title, 16)),
+                      subtitle: Text(truncateText(chat['lastMessage'] ?? '', 16)),
+                      trailing: Text(_formatTime(chat['lastMessageTime'])),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (ctx) => ChatPage(
+                                  chatId: chatDocs[idx].id,
+                                  chatType: isGroup ? 'group' : 'private',
+                                  targetUserId: isGroup ? null : targetUserId,
+                                  groupName: isGroup ? chat['name'] : null,
+                                  groupImage: isGroup ? chat['image_url'] : null,
+                                ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              );
+            }
+            return ListView(
+              children: chatTiles,
             );
           },
         );

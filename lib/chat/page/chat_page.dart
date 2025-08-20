@@ -30,6 +30,7 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController(); // Add this
   final _currentUser = FirebaseAuth.instance.currentUser;
   Map<String, dynamic>? _targetUserData; // For private chat
   bool _isAdmin = false;
@@ -85,7 +86,6 @@ class _ChatPageState extends State<ChatPage> {
       'senderId': _currentUser!.uid,
     });
 
-    // Update chat meta for chat list
     await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).set({
       'lastMessage': text,
       'lastMessageSender': _currentUser.uid,
@@ -93,6 +93,22 @@ class _ChatPageState extends State<ChatPage> {
     }, SetOptions(merge: true));
 
     _controller.clear();
+
+    // Scroll to bottom after sending
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String truncateText(String text, int maxLength) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
   }
 
   @override
@@ -108,7 +124,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
           if (widget.groupImage != null && widget.groupImage!.isNotEmpty)
             const SizedBox(width: 8),
-          Text(widget.groupName ?? 'Group Chat'),
+          Text(truncateText(widget.groupName ?? 'Group Chat', 8)),
         ],
       );
     } else {
@@ -126,7 +142,7 @@ class _ChatPageState extends State<ChatPage> {
             if (_targetUserData!['image_url'] != null &&
                 (_targetUserData!['image_url'] as String).isNotEmpty)
               const SizedBox(width: 8),
-            Text(_targetUserData!['username'] ?? 'User'),
+            Text(truncateText(_targetUserData!['username'] ?? 'User', 10)),
           ],
         );
       }
@@ -168,21 +184,41 @@ class _ChatPageState extends State<ChatPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final docs = snapshot.data!.docs;
-                String? lastSenderId;
+                String? nowSenderId;
+                String? nextSenderId;
+                // Scroll to bottom when messages are loaded
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      0.0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
                 return ListView.builder(
-                  reverse: false,
+                  controller: _scrollController,
+                  reverse: true, // Stack messages from bottom up
                   itemCount: docs.length,
                   itemBuilder: (ctx, idx) {
-                    final msg = docs[idx].data() as Map<String, dynamic>;
-                    final isMe = msg['senderId'] == _currentUser!.uid;
-                    final showAvatarAndName = lastSenderId != msg['senderId'];
-                    lastSenderId = msg['senderId'];
+                    int now = docs.length - 1 - idx;
+                    int next = docs.length - 2 - idx;
+                    final msgNow = docs[now].data() as Map<String, dynamic>;
+                    nowSenderId = msgNow['senderId'];
+                    final isMe = nowSenderId == _currentUser!.uid;
+                    bool showAvatarAndName = true;
+                    if (now > 0) {
+                      final msgNext = docs[next].data() as Map<String, dynamic>;
+                      nextSenderId = msgNext['senderId'];
+                      showAvatarAndName = nowSenderId != nextSenderId;
+                    }
+                    
 
                     String? senderName;
                     String? senderImage;
                     if (widget.chatType == 'group') {
-                      senderName = widget.userNames?[msg['senderId']];
-                      senderImage = widget.userImages?[msg['senderId']];
+                      senderName = widget.userNames?[nowSenderId];
+                      senderImage = widget.userImages?[nowSenderId];
                     } else if (_targetUserData != null) {
                       if (isMe) {
                         senderName = 'You';
@@ -194,7 +230,7 @@ class _ChatPageState extends State<ChatPage> {
                     }
 
                     return MessageBubble(
-                      message: msg['text'] ?? '',
+                      message: msgNow['text'] ?? '',
                       isMe: isMe,
                       senderName: showAvatarAndName ? senderName : null,
                       senderImage: showAvatarAndName ? senderImage : null,
