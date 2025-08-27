@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:fyp/chat/page/broadcast_create_page.dart';
 import 'package:fyp/chat/page/create_group_page.dart';
 import 'package:fyp/chat/page/user_search_page.dart';
-import 'package:fyp/chat/widget/display_broadcast_chat.dart';
 import 'package:fyp/chat/widget/display_chat_history.dart';
 
 class ChatListPage extends StatefulWidget {

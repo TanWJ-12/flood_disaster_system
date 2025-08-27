@@ -113,6 +113,7 @@ class _BroadcastCreatePageState extends State<BroadcastCreatePage> {
           ? {
               'lat': _selectedLocation!.latitude,
               'lng': _selectedLocation!.longitude,
+              'address': _selectedLocation!.address,
             }
           : null,
     };

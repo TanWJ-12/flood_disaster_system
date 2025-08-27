@@ -28,7 +28,7 @@ class ReportPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: ReportList(
           // report: userReport,

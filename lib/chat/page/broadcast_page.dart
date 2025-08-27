@@ -30,7 +30,7 @@ class BroadcastPage extends StatelessWidget {
                 timestamp: (msg['timestamp'] as Timestamp).toDate(),
                 imageUrl: msg['image_url'],
                 location: msg['location'] != null
-                    ? {'lat': msg['location']['lat'], 'lng': msg['location']['lng']}
+                    ? {'lat': msg['location']['lat'], 'lng': msg['location']['lng'], 'address': msg['location']['address']}
                     : null,
               );
             }).toList(),
