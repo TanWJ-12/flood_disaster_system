@@ -10,7 +10,7 @@ class BroadcastPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Announcements')),
       body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('chat').doc('broadcast').get(),
+        future: FirebaseFirestore.instance.collection('chats').doc('broadcast').get(),
         builder: (ctx, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final doc = snapshot.data;

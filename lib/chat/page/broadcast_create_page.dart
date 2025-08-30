@@ -98,12 +98,13 @@ class _BroadcastCreatePageState extends State<BroadcastCreatePage> {
     }
 
     final user = FirebaseAuth.instance.currentUser;
-    final chatDocRef = FirebaseFirestore.instance.collection('chat').doc('broadcast');
+    final chatDocRef = FirebaseFirestore.instance.collection('chats').doc('broadcast');
     final chatDoc = await chatDocRef.get();
     final now = Timestamp.now();
 
     // Prepare broadcast message data
     final broadcastMessage = {
+      'type': 'broadcast',
       'message': message,
       'urgency': _urgency,
       'timestamp': now,

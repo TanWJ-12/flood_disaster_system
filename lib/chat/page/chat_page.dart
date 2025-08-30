@@ -10,8 +10,8 @@ class ChatPage extends StatefulWidget {
   final String? targetUserId; // For private chat
   final String? groupName; // For group chat
   final String? groupImage; // For group chat
-  final Map<String, String>? userNames; // For group chat: userId -> username
-  final Map<String, String>? userImages; // For group chat: userId -> image url
+  // final Map<String, String>? userNames; // For group chat: userId -> username
+  // final Map<String, String>? userImages; // For group chat: userId -> image url
 
   const ChatPage({
     super.key,
@@ -20,8 +20,8 @@ class ChatPage extends StatefulWidget {
     this.targetUserId,
     this.groupName,
     this.groupImage,
-    this.userNames,
-    this.userImages,
+    // this.userNames,
+    // this.userImages,
   });
 
   @override
@@ -35,6 +35,9 @@ class _ChatPageState extends State<ChatPage> {
   Map<String, dynamic>? _targetUserData; // For private chat
   bool _isAdmin = false;
 
+  Map<String, dynamic>? userDataMap; // For group chat
+  bool _groupUserLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +46,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (widget.chatType == 'group' && widget.chatId != null) {
       _checkAdmin();
+      _fetchGroupUserData();
     }
   }
 
@@ -54,6 +58,40 @@ class _ChatPageState extends State<ChatPage> {
     if (query.docs.isNotEmpty) {
       setState(() {
         _targetUserData = query.docs.first.data();
+      });
+    }
+  }
+
+  Future<void> _fetchGroupUserData() async {
+    if (widget.chatId == null) return;
+    final chatDoc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).get();
+    final data = chatDoc.data();
+    if (data != null && data['members'] != null) {
+      List<dynamic> memberIds = List.from(data['members']);
+      Map<String, dynamic> tempUserDataMap = {};
+      for (var memberId in memberIds) {
+        final userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('user_id', isEqualTo: memberId)
+            .get();
+        if (userQuery.docs.isNotEmpty) {
+          final userData = userQuery.docs.first.data();
+          final docId = userQuery.docs.first.id;
+          tempUserDataMap[docId] = {
+            'username': userData['username'],
+            'image_url': userData['image_url'],
+          };
+          //log
+          print('XXXFetched user data for docId $docId: ${tempUserDataMap[docId]}');
+        }
+      }
+      setState(() {
+        userDataMap = tempUserDataMap;
+        _groupUserLoading = false;
+      });
+    } else {
+      setState(() {
+        _groupUserLoading = false;
       });
     }
   }
@@ -172,73 +210,81 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(widget.chatId)
-                  .collection('messages')
-                  .orderBy('createdAt', descending: false)
-                  .snapshots(),
-              builder: (ctx, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final docs = snapshot.data!.docs;
-                String? nowSenderId;
-                String? nextSenderId;
-                // Scroll to bottom when messages are loaded
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_scrollController.hasClients) {
-                    _scrollController.animateTo(
-                      0.0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  }
-                });
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true, // Stack messages from bottom up
-                  itemCount: docs.length,
-                  itemBuilder: (ctx, idx) {
-                    int now = docs.length - 1 - idx;
-                    int next = docs.length - 2 - idx;
-                    final msgNow = docs[now].data() as Map<String, dynamic>;
-                    nowSenderId = msgNow['senderId'];
-                    final isMe = nowSenderId == _currentUser!.uid;
-                    bool showAvatarAndName = true;
-                    if (now > 0) {
-                      final msgNext = docs[next].data() as Map<String, dynamic>;
-                      nextSenderId = msgNext['senderId'];
-                      showAvatarAndName = nowSenderId != nextSenderId;
-                    }
-                    
-
-                    String? senderName;
-                    String? senderImage;
-                    if (widget.chatType == 'group') {
-                      senderName = widget.userNames?[nowSenderId];
-                      senderImage = widget.userImages?[nowSenderId];
-                    } else if (_targetUserData != null) {
-                      if (isMe) {
-                        senderName = 'You';
-                        senderImage = null;
-                      } else {
-                        senderName = _targetUserData!['username'];
-                        senderImage = _targetUserData!['image_url'];
+            child: (widget.chatType == 'group' && _groupUserLoading)
+                ? const Center(child: CircularProgressIndicator())
+                : StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('chats')
+                        .doc(widget.chatId)
+                        .collection('messages')
+                        .orderBy('createdAt', descending: false)
+                        .snapshots(),
+                    builder: (ctx, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
                       }
-                    }
+                      final docs = snapshot.data!.docs;
+                      String? nowSenderId;
+                      String? nextSenderId;
+                      // Scroll to bottom when messages are loaded
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            0.0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      });
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true, // Stack messages from bottom up
+                        itemCount: docs.length,
+                        itemBuilder: (ctx, idx) {
+                          int now = docs.length - 1 - idx;
+                          int next = docs.length - 2 - idx;
+                          final msgNow = docs[now].data() as Map<String, dynamic>;
+                          nowSenderId = msgNow['senderId'];
+                          final isMe = nowSenderId == _currentUser!.uid;
+                          bool showAvatarAndName = true;
+                          if (now > 0) {
+                            final msgNext = docs[next].data() as Map<String, dynamic>;
+                            nextSenderId = msgNext['senderId'];
+                            showAvatarAndName = nowSenderId != nextSenderId;
+                          }
 
-                    return MessageBubble(
-                      message: msgNow['text'] ?? '',
-                      isMe: isMe,
-                      senderName: showAvatarAndName ? senderName : null,
-                      senderImage: showAvatarAndName ? senderImage : null,
-                    );
-                  },
-                );
-              },
-            ),
+                          String? senderName;
+                          String? senderImage;
+                          if (widget.chatType == 'group'&& showAvatarAndName && userDataMap != null) {
+                            //log
+                            print('XXXFetching user data for $nowSenderId');
+                              //log
+                              print('XXXDisplaying sender info for $nowSenderId: ${userDataMap![nowSenderId]}');
+                              senderName = userDataMap![nowSenderId]?['username'];
+                              senderImage = userDataMap![nowSenderId]?['image_url'];
+                            
+                            //log
+                            print('XXXname and image: $senderName, $senderImage');
+                          } else if (_targetUserData != null) {
+                            if (isMe) {
+                              senderName = 'You';
+                              senderImage = null;
+                            } else {
+                              senderName = _targetUserData!['username'];
+                              senderImage = _targetUserData!['image_url'];
+                            }
+                          }
+
+                          return MessageBubble(
+                            message: msgNow['text'] ?? '',
+                            isMe: isMe,
+                            senderName: showAvatarAndName ? senderName : null,
+                            senderImage: showAvatarAndName ? senderImage : null,
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(8),

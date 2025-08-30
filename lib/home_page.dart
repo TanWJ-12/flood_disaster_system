@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp/report/page/report_page.dart';
 import 'package:fyp/chat/page/chat_list.dart';
@@ -22,6 +21,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   void _onTabTapped(int index) {
+    if (index == _selectedIndex) return; // Do nothing if already on the selected tab
     setState(() {
       _selectedIndex = index;
     });

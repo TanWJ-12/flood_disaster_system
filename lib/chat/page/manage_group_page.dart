@@ -19,6 +19,7 @@ class _ManageGroupPageState extends State<ManageGroupPage> {
   String? _imageUrl;
   bool _isLoading = false;
   String? _error;
+  String? _adminId;
 
   List<Map<String, dynamic>> _members = [];
   List<Map<String, dynamic>> _requests = [];
@@ -37,6 +38,7 @@ class _ManageGroupPageState extends State<ManageGroupPage> {
 
     _nameController.text = data['name'] ?? '';
     _imageUrl = data['image_url'] ?? '';
+    _adminId = data['admin'] ?? '';
 
     // Fetch members
     final memberIds = List<String>.from(data['members'] ?? []);
@@ -231,7 +233,7 @@ class _ManageGroupPageState extends State<ManageGroupPage> {
                       final userId = user['user_id'];
                       final username = user['username'] ?? userId;
                       final imageUrl = user['image_url'];
-                      final isAdmin = userId == widget.adminUserId;
+                      final isAdmin = userId == _adminId;
                       return Chip(
                         avatar: imageUrl != null && imageUrl.isNotEmpty
                             ? CircleAvatar(backgroundImage: NetworkImage(imageUrl))

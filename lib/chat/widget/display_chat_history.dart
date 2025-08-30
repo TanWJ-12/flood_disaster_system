@@ -46,12 +46,21 @@ class _DisplayChatHistoryState extends State<DisplayChatHistory> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchMyUserId().then((_) {
+      setState(() {});
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    _fetchMyUserId();
+    if (_userId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('chats')
-          .where('members', arrayContains: _userId)
           .orderBy('lastMessageTime', descending: true)
           .snapshots(),
       builder: (ctx, snapshot) {
@@ -60,105 +69,103 @@ class _DisplayChatHistoryState extends State<DisplayChatHistory> {
         }
 
         final chatDocs = snapshot.hasData ? snapshot.data!.docs : [];
+        List<Widget> chatTiles = [];
 
-        return StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('chat').doc('broadcast').snapshots(),
-          builder: (ctx, broadcastSnap) {
-            List<Widget> chatTiles = [];
-            // Add broadcast chat if exists
-            if (broadcastSnap.hasData && broadcastSnap.data != null && broadcastSnap.data!.exists) {
-              final broadcast = broadcastSnap.data!.data() as Map<String, dynamic>;
-              chatTiles.add(
-                ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.campaign)),
-                  title: const Text('Announcements'),
-                  subtitle: Text(truncateText(broadcast['lastMessage'] ?? '', 16)),
-                  trailing: Text(_formatTime(broadcast['lastMessageTime'])),
-                  onTap: () {
-                    // Navigate to broadcast page or details
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (ctx) => BroadcastPage(
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            }
+        if (chatDocs.isEmpty) {
+          return const Center(child: Text('No chats yet.'));
+        }
 
-            // Add other chats
-            if (chatDocs.isEmpty && chatTiles.isEmpty) {
-              return const Center(child: Text('No chats yet.'));
-            }
-            for (var idx = 0; idx < chatDocs.length; idx++) {
-              final chat = chatDocs[idx].data() as Map<String, dynamic>;
-              final isGroup = chat['type'] == 'group';
-              final members = List<String>.from(chat['members'] ?? []);
-              String? targetUserId;
-              if (!isGroup) {
-                targetUserId = members.firstWhere((id) => id != _userId);
-              }
-              chatTiles.add(
-                FutureBuilder<DocumentSnapshot>(
-                  future:
-                      isGroup
-                          ? null
-                          : FirebaseFirestore.instance
-                              .collection('users')
-                              .where('user_id', isEqualTo: targetUserId)
-                              .limit(1)
-                              .get()
-                              .then((snap) => snap.docs.first),
-                  builder: (ctx, userSnap) {
-                    String title = '';
-                    String? imageUrl;
-                    if (isGroup) {
-                      title = chat['name'] ?? 'Group Chat';
-                      imageUrl = chat['image_url'];
-                    } else if (userSnap.hasData && userSnap.data != null) {
-                      final userData =
-                          userSnap.data!.data() as Map<String, dynamic>;
-                      title = userData['username'] ?? '';
-                      imageUrl = userData['image_url'];
-                    }
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage:
-                            imageUrl != null && imageUrl.isNotEmpty
-                                ? NetworkImage(imageUrl)
-                                : null,
-                        child:
-                            imageUrl == null || imageUrl.isEmpty
-                                ? const Icon(Icons.person)
-                                : null,
-                      ),
-                      title: Text(truncateText(title, 16)),
-                      subtitle: Text(truncateText(chat['lastMessage'] ?? '', 16)),
-                      trailing: Text(_formatTime(chat['lastMessageTime'])),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder:
-                                (ctx) => ChatPage(
-                                  chatId: chatDocs[idx].id,
-                                  chatType: isGroup ? 'group' : 'private',
-                                  targetUserId: isGroup ? null : targetUserId,
-                                  groupName: isGroup ? chat['name'] : null,
-                                  groupImage: isGroup ? chat['image_url'] : null,
-                                ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              );
-            }
-            return ListView(
-              children: chatTiles,
+        for (var idx = 0; idx < chatDocs.length; idx++) {
+          final chat = chatDocs[idx].data() as Map<String, dynamic>;
+          final type = chat['type'];
+          final members = List<String>.from(chat['members'] ?? []);
+
+          // Broadcast: show to all users
+          if (type == 'broadcast') {
+            chatTiles.add(
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.campaign)),
+                title: const Text('Announcements'),
+                subtitle: Text(truncateText(chat['lastMessage'] ?? '', 16)),
+                trailing: Text(_formatTime(chat['lastMessageTime'])),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (ctx) => BroadcastPage(),
+                    ),
+                  );
+                },
+              ),
             );
-          },
+            continue;
+          }
+
+          // Group or private: show only if user is a member
+          if (members.contains(_userId)) {
+            final isGroup = type == 'group';
+            String? targetUserId;
+            if (!isGroup) {
+              targetUserId = members.firstWhere((id) => id != _userId);
+            }
+            chatTiles.add(
+              FutureBuilder<DocumentSnapshot>(
+                future:
+                    isGroup
+                        ? null
+                        : FirebaseFirestore.instance
+                            .collection('users')
+                            .where('user_id', isEqualTo: targetUserId)
+                            .limit(1)
+                            .get()
+                            .then((snap) => snap.docs.first),
+                builder: (ctx, userSnap) {
+                  String title = '';
+                  String? imageUrl;
+                  if (isGroup) {
+                    title = chat['name'] ?? 'Group Chat';
+                    imageUrl = chat['image_url'];
+                  } else if (userSnap.hasData && userSnap.data != null) {
+                    final userData =
+                        userSnap.data!.data() as Map<String, dynamic>;
+                    title = userData['username'] ?? '';
+                    imageUrl = userData['image_url'];
+                  }
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage:
+                          imageUrl != null && imageUrl.isNotEmpty
+                              ? NetworkImage(imageUrl)
+                              : null,
+                      child:
+                          imageUrl == null || imageUrl.isEmpty
+                              ? const Icon(Icons.person)
+                              : null,
+                    ),
+                    title: Text(truncateText(title, 16)),
+                    subtitle: Text(truncateText(chat['lastMessage'] ?? '', 16)),
+                    trailing: Text(_formatTime(chat['lastMessageTime'])),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (ctx) => ChatPage(
+                                chatId: chatDocs[idx].id,
+                                chatType: isGroup ? 'group' : 'private',
+                                targetUserId: isGroup ? null : targetUserId,
+                                groupName: isGroup ? chat['name'] : null,
+                                groupImage: isGroup ? chat['image_url'] : null,
+                              ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          }
+        }
+        return ListView(
+          children: chatTiles,
         );
       },
     );
