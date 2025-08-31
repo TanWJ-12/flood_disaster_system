@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp/report/page/report_page.dart';
 import 'package:fyp/chat/page/chat_list.dart';
 import 'package:fyp/profile/page/profile_page.dart';
+import 'package:fyp/Map/page/relief_centers_page.dart';
 
 class MainScaffold extends StatefulWidget {
   final int initialIndex;
@@ -82,6 +83,21 @@ class HomeContent extends StatelessWidget {
         child: Column(
           children: [
             const Spacer(),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.location_on),
+                label: const Text('Relief Centers Map'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (ctx) => ReliefCentersPage(),
+                    ),
+                  );
+                },
+              ),
             ElevatedButton.icon(
               icon: const Icon(Icons.report),
               label: const Text('Report'),
