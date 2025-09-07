@@ -8,7 +8,8 @@ import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 
 class LocationInput extends StatefulWidget {
-  const LocationInput({super.key, required this.onSelectLocation});
+  const LocationInput({super.key, required this.onSelectLocation, this.onInteract});
+  final VoidCallback? onInteract;
 
   final void Function(ReportLocation location) onSelectLocation;
 
@@ -63,6 +64,7 @@ class _LocationInputState extends State<LocationInput> {
   }
 
   void _getCurrentLocation() async {
+    widget.onInteract?.call();
     Location location = Location();
 
     bool serviceEnabled;
@@ -102,6 +104,7 @@ class _LocationInputState extends State<LocationInput> {
   }
 
   void _selectOnMap() async {
+    widget.onInteract?.call();
     Location location = Location();
 
     bool serviceEnabled;

@@ -83,26 +83,27 @@ class HomeContent extends StatelessWidget {
         child: Column(
           children: [
             const Spacer(),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.location_on),
-                label: const Text('Relief Centers Map'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (ctx) => ReliefCentersPage(),
-                    ),
-                  );
-                },
-              ),
             ElevatedButton.icon(
-              icon: const Icon(Icons.report),
-              label: const Text('Report'),
+              icon: const Icon(Icons.location_on, color: Colors.white),
+              label: const Text('Relief Centers Map', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => ReliefCentersPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.report, color: Colors.white),
+              label: const Text('Report', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
                 minimumSize: const Size(double.infinity, 50),
               ),
               onPressed: () {
