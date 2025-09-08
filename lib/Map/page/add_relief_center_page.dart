@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
-import 'package:image_picker/image_picker.dart';
+// import 'package:image_picker/image_picker.dart';
 import 'package:fyp/report/widgets/location_input.dart';
 import 'package:fyp/report/models/report.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -159,27 +159,37 @@ class _AddReliefCenterPageState extends State<AddReliefCenterPage> {
         return;
       }
 
-      String? imageUrl;
-      if (_imageFile != null) {
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('relief_center_images')
-            .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await ref.putFile(_imageFile!);
-        imageUrl = await ref.getDownloadURL();
-      }
+      // String? imageUrl;
+      // if (_imageFile != null) {
+      //   final ref = FirebaseStorage.instance
+      //       .ref()
+      //       .child('relief_center_images')
+      //       .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+      //   await ref.putFile(_imageFile!);
+      //   imageUrl = await ref.getDownloadURL();
+      // }
 
+      final int capacity = int.tryParse(_capacityController.text.trim()) ?? 0;
+      final List<Map<String, dynamic>> resourcesWithRemain = _resources.map((r) {
+        final value = r['value'].toString();
+        return {
+          'name': r['name'],
+          'value': value,
+          'remain': value,
+        };
+      }).toList();
       final doc = {
         'id': id,
         'name': _nameController.text.trim(),
-        'image_url': imageUrl ?? '',
+        // 'image_url': imageUrl ?? '',
         'location': {
           'latitude': _selectedLocation!.latitude,
           'longitude': _selectedLocation!.longitude,
           'address': _selectedLocation!.address,
         },
-        'resources': _resources,
-        'capacity': int.tryParse(_capacityController.text.trim()) ?? 0,
+        'resources': resourcesWithRemain,
+        'capacity': capacity,
+        'remain_capacity': capacity,
         'phone': _phoneController.text.trim(),
         'email': _emailController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -315,18 +325,18 @@ class _AddReliefCenterPageState extends State<AddReliefCenterPage> {
   final _nameController = TextEditingController();
   ReportLocation? _selectedLocation;
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 60,
-    );
-    if (picked != null) {
-      setState(() {
-        _imageFile = File(picked.path);
-      });
-    }
-  }
+  // Future<void> _pickImage() async {
+  //   final picker = ImagePicker();
+  //   final picked = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //     imageQuality: 60,
+  //   );
+  //   if (picked != null) {
+  //     setState(() {
+  //       _imageFile = File(picked.path);
+  //     });
+  //   }
+  // }
 
   void _onSelectLocation(ReportLocation location) {
     setState(() {
@@ -357,26 +367,26 @@ class _AddReliefCenterPageState extends State<AddReliefCenterPage> {
                     'Basic Information',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Row(
-                    children: [
-                      _imageFile != null
-                          ? CircleAvatar(
-                            backgroundImage: FileImage(_imageFile!),
-                            radius: 32,
-                          )
-                          : const CircleAvatar(
-                            radius: 32,
-                            child: Icon(Icons.image),
-                          ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.image),
-                        label: const Text('Pick Image'),
-                        onPressed: _pickImage,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  // Row(
+                  //   children: [
+                  //     _imageFile != null
+                  //         ? CircleAvatar(
+                  //           backgroundImage: FileImage(_imageFile!),
+                  //           radius: 32,
+                  //         )
+                  //         : const CircleAvatar(
+                  //           radius: 32,
+                  //           child: Icon(Icons.image),
+                  //         ),
+                  //     const SizedBox(width: 12),
+                  //     ElevatedButton.icon(
+                  //       icon: const Icon(Icons.image),
+                  //       label: const Text('Pick Image'),
+                  //       onPressed: _pickImage,
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 8),
                   TextField(
                     controller: _nameController,
                     focusNode: _nameFocus,

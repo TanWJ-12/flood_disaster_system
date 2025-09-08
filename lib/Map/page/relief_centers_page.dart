@@ -2,6 +2,8 @@ import 'package:fyp/Map/widget/distance_calculator.dart';
 
 import 'package:flutter/material.dart';
 import 'package:fyp/Map/page/add_relief_center_page.dart';
+import 'package:fyp/Map/page/update_remain_page.dart';
+import 'package:fyp/Map/page/edit_relief_center_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -235,7 +237,7 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
                           Padding(
                             padding: const EdgeInsets.only(left: 8.0),
                             child: Text(
-                              '${center['capacity']}',
+                              '${center['remain_capacity'] ?? center['capacity']}/${center['capacity']}',
                               style: const TextStyle(fontSize: 15),
                             ),
                           ),
@@ -298,7 +300,9 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      '${r['name']}: ${r['value']}',
+                                      r['remain'] != null
+                                        ? '${r['name']}: ${r['remain']}/${r['value']}'
+                                        : '${r['name']}: ${r['value']}',
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                   ),
@@ -444,6 +448,7 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
                 'phone': data['phone'],
                 'email': data['email'],
                 'capacity': data['capacity'],
+                'remain_capacity': data['remain_capacity'],
                 'resources': data['resources'],
                 'description': data['description'],
               };
@@ -451,21 +456,8 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
               return Marker(
                 markerId: MarkerId(doc.id),
                 position: LatLng(lat, lng),
-                infoWindow: InfoWindow(
-                  title: name,
-                  onTap: () {
-                    _showReliefCenterInfo({
-                      ...center,
-                      'distance':
-                          _userLocation == null
-                              ? null
-                              : DistanceCalculator.calculateDistance(
-                                _userLocation!,
-                                LatLng(lat, lng),
-                              ),
-                    });
-                  },
-                ),
+                // Remove infoWindow tap, so tap does nothing
+                infoWindow: const InfoWindow(),
               );
             })
             .whereType<Marker>()
@@ -556,6 +548,28 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
                         );
                       }
                     },
+                    onLongPress: (latLng) {
+                      // Find the nearest marker to the long-press location
+                      Marker? nearest;
+                      double minDist = double.infinity;
+                      for (final marker in _markers) {
+                        final dist = ((latLng.latitude - marker.position.latitude).abs() +
+                            (latLng.longitude - marker.position.longitude).abs());
+                        if (dist < minDist) {
+                          minDist = dist;
+                          nearest = marker;
+                        }
+                      }
+                      if (nearest != null && minDist < 0.0005) { // ~50m threshold
+                        final center = _reliefCenters.firstWhere(
+                          (c) => c['lat'] == nearest!.position.latitude && c['lng'] == nearest.position.longitude,
+                          orElse: () => {},
+                        );
+                        if (center.isNotEmpty) {
+                          _showReliefCenterInfo(center);
+                        }
+                      }
+                    },
                   ),
                 ),
               ),
@@ -575,114 +589,203 @@ class _ReliefCentersPageState extends State<ReliefCentersPage> {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child:
-                    _userLocation == null
+              child: Center(
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  // Match the map's width and optionally set a max width for better appearance on large screens
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: _userLocation == null
                         ? const Center(child: CircularProgressIndicator())
                         : Builder(
-                          builder: (context) {
-                            final centersWithDistance =
-                                _reliefCenters.map((center) {
-                                  final distance =
-                                      DistanceCalculator.calculateDistance(
-                                        _userLocation!,
-                                        LatLng(center['lat'], center['lng']),
-                                      );
-                                  return {...center, 'distance': distance};
-                                }).toList();
-                            centersWithDistance.sort(
-                              (a, b) => (a['distance'] as double).compareTo(
-                                b['distance'] as double,
-                              ),
-                            );
-                            return ListView.separated(
-                              itemCount: centersWithDistance.length,
-                              separatorBuilder:
-                                  (context, index) => Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                        child: Divider(
-                                          height: 1.5,
-                                          color: Colors.grey.shade500,
-                                          thickness: 1.2,
-                                        ),
-                                      ),
-                              itemBuilder: (context, index) {
-                                final center = centersWithDistance[index];
-                                final isSelected =
-                                    _selectedCenter != null &&
-                                    _selectedCenter!['id'] == center['id'];
-                                return GestureDetector(
-                                  onTap: () async {
-                                    if (_mapController != null) {
-                                      await _mapController!.animateCamera(
-                                        CameraUpdate.newCameraPosition(
-                                          CameraPosition(
-                                            target: LatLng(
-                                              center['lat'],
-                                              center['lng'],
-                                            ),
-                                            zoom: 16,
+                            builder: (context) {
+                              final centersWithDistance =
+                                  _reliefCenters.map((center) {
+                                    final distance =
+                                        DistanceCalculator.calculateDistance(
+                                          _userLocation!,
+                                          LatLng(center['lat'], center['lng']),
+                                        );
+                                    return {...center, 'distance': distance};
+                                  }).toList();
+                              centersWithDistance.sort(
+                                (a, b) => (a['distance'] as double).compareTo(
+                                  b['distance'] as double,
+                                ),
+                              );
+                              return ListView.separated(
+                                itemCount: centersWithDistance.length,
+                                separatorBuilder:
+                                    (context, index) => Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Divider(
+                                            height: 1.5,
+                                            color: Colors.grey.shade500,
+                                            thickness: 1.2,
                                           ),
                                         ),
-                                      );
-                                    }
-                                    setState(() {
-                                      _selectedCenter = center;
-                                    });
-                                  },
-                                  onLongPress: () {
-                                    setState(() {
-                                      _selectedCenter = center;
-                                    });
-                                    _showReliefCenterInfo(center);
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    curve: Curves.easeInOut,
-                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                    decoration: isSelected
-                                        ? BoxDecoration(
-                                            color: Colors.grey.shade900,
-                                            border: Border.all(color: Colors.black, width: 2.5),
-                                            borderRadius: BorderRadius.circular(12),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.18),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 3),
+                                itemBuilder: (context, index) {
+                                  final center = centersWithDistance[index];
+                                  final isSelected =
+                                      _selectedCenter != null &&
+                                      _selectedCenter!['id'] == center['id'];
+                                  return GestureDetector(
+                                    onTap: () async {
+                                      if (_mapController != null) {
+                                        await _mapController!.animateCamera(
+                                          CameraUpdate.newCameraPosition(
+                                            CameraPosition(
+                                              target: LatLng(
+                                                center['lat'],
+                                                center['lng'],
                                               ),
-                                            ],
-                                          )
-                                        : BoxDecoration(
-                                            color: const Color.fromARGB(255, 255, 255, 255),
-                                            border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                                            borderRadius: BorderRadius.circular(12),
+                                              zoom: 16,
+                                            ),
                                           ),
-                                    
-                                    child: ListTile(
-                                      leading: Icon(Icons.location_on, color: isSelected ? Colors.white : Colors.grey),
-                                      title: Text(
-                                        center['name'] ?? '',
-                                        style: TextStyle(
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          color: isSelected ? Colors.white : Colors.black,
+                                        );
+                                      }
+                                      setState(() {
+                                        _selectedCenter = center;
+                                      });
+                                    },
+                                    onLongPress: () {
+                                      setState(() {
+                                        _selectedCenter = center;
+                                      });
+                                      _showReliefCenterInfo(center);
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      curve: Curves.easeInOut,
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
+                                      decoration: isSelected
+                                          ? BoxDecoration(
+                                              color: Colors.grey.shade900,
+                                              border: Border.all(color: Colors.black, width: 2.5),
+                                              borderRadius: BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.18),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            )
+                                          : BoxDecoration(
+                                              color: const Color.fromARGB(255, 255, 255, 255),
+                                              border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                      
+                                      child: ListTile(
+                                        leading: Icon(Icons.location_on, color: isSelected ? Colors.white : Colors.grey),
+                                        title: Text(
+                                          center['name'] ?? '',
+                                          style: TextStyle(
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            color: isSelected ? Colors.white : Colors.black,
+                                          ),
                                         ),
-                                      ),
-                                      subtitle: Text(
-                                        '${center['address'] ?? ''}\n${(center['distance'] / 1000).toStringAsFixed(2)} km away',
-                                        style: TextStyle(
-                                          color: isSelected ? Colors.grey.shade200 : Colors.black87,
+                                        subtitle: Text(
+                                          '${center['address'] ?? ''}\n${(center['distance'] / 1000).toStringAsFixed(2)} km away',
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.grey.shade200 : Colors.black87,
+                                          ),
                                         ),
+                                        trailing: _isAdmin
+                                            ? PopupMenuButton<String>(
+                                                icon: Icon(Icons.more_vert, color: isSelected ? Colors.grey.shade200 : Colors.black87),
+                                                onSelected: (value) async {
+                                                  if (value == 'update_remain') {
+                                                    final updated = await Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (ctx) => UpdateRemainPage(
+                                                          reliefCenterId: center['id'],
+                                                          capacity: center['capacity'] ?? 0,
+                                                          remainCapacity: center['remain_capacity'] ?? center['capacity'] ?? 0,
+                                                          resources: (center['resources'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [],
+                                                        ),
+                                                      ),
+                                                    );
+                                                    if (updated == true) {
+                                                      _fetchReliefCenters();
+                                                    }
+                                                  } else if (value == 'modify_data') {
+                                                    final updated = await Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (ctx) => EditReliefCenterPage(reliefCenterId: center['id']),
+                                                      ),
+                                                    );
+                                                    if (updated == true) {
+                                                      _fetchReliefCenters();
+                                                    }
+                                                  } else if (value == 'delete_center') {
+                                                    final confirm = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        title: const Text('Delete Relief Center'),
+                                                        content: const Text('Are you sure you want to delete this relief center? This action cannot be undone.'),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () => Navigator.of(ctx).pop(false),
+                                                            child: const Text('Cancel'),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed: () => Navigator.of(ctx).pop(true),
+                                                            child: const Text('Yes, Delete'),
+                                                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                    if (confirm == true) {
+                                                      await FirebaseFirestore.instance.collection('relief_centers').doc(center['id']).delete();
+                                                      _fetchReliefCenters();
+                                                      if (mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(content: Text('Relief center deleted.')),
+                                                        );
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem(
+                                                    value: 'update_remain',
+                                                    child: ListTile(
+                                                      leading: Icon(Icons.update),
+                                                      title: Text('Update Remain'),
+                                                    ),
+                                                  ),
+                                                  const PopupMenuItem(
+                                                    value: 'modify_data',
+                                                    child: ListTile(
+                                                      leading: Icon(Icons.edit),
+                                                      title: Text('Modify Data'),
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'delete_center',
+                                                    child: ListTile(
+                                                      leading: const Icon(Icons.delete, color: Colors.red),
+                                                      title: const Text('Delete Relief Center', style: TextStyle(color: Colors.red)),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : null,
+
+                                        tileColor: Colors.transparent,
                                       ),
-                                      tileColor: Colors.transparent,
                                     ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ),
               ),
             ),
           ],

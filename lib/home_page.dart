@@ -3,6 +3,7 @@ import 'package:fyp/report/page/report_page.dart';
 import 'package:fyp/chat/page/chat_list.dart';
 import 'package:fyp/profile/page/profile_page.dart';
 import 'package:fyp/Map/page/relief_centers_page.dart';
+import 'package:fyp/home_map_widget.dart';
 
 class MainScaffold extends StatefulWidget {
   final int initialIndex;
@@ -82,6 +83,16 @@ class HomeContent extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // User-focused map display
+            SizedBox(
+              height: 450,
+              child: Builder(
+                builder: (context) {
+                  // Import the widget only here to avoid circular import
+                  return const UserMapWidget();
+                },
+              ),
+            ),
             const Spacer(),
             ElevatedButton.icon(
               icon: const Icon(Icons.location_on, color: Colors.white),

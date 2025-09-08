@@ -8,10 +8,15 @@ import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 
 class LocationInput extends StatefulWidget {
-  const LocationInput({super.key, required this.onSelectLocation, this.onInteract});
+  const LocationInput({
+    super.key,
+    required this.onSelectLocation,
+    this.onInteract,
+    this.initialLocation,
+  });
   final VoidCallback? onInteract;
-
   final void Function(ReportLocation location) onSelectLocation;
+  final ReportLocation? initialLocation;
 
   @override
   State<StatefulWidget> createState() {
@@ -22,6 +27,14 @@ class LocationInput extends StatefulWidget {
 class _LocationInputState extends State<LocationInput> {
   ReportLocation? _pickedLocation;
   var _isGettingLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLocation != null) {
+      _pickedLocation = widget.initialLocation;
+    }
+  }
 
   String get locationImage {
     if (_pickedLocation == null) {
